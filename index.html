@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FiveM Vehicle Dashboard</title>
+<link rel="icon" type="image/png" href="./icon.png">
+<link rel="apple-touch-icon" href="./icon.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
 <style>
@@ -14,8 +16,8 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif}
   header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:10}
-  .logo{font-size:20px;font-weight:700;display:flex;gap:8px;align-items:center}
-  .logo .gem{color:var(--accent)}
+  .logo{font-size:20px;font-weight:700;display:flex;gap:10px;align-items:center}
+  .logo img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:2px solid var(--accent)}
   #search{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 14px;font-size:14px}
   .count{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:14px;color:var(--sub)}
   .count b{color:var(--text);font-size:18px}
@@ -28,8 +30,8 @@
   main{padding:16px 20px 40px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
   .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
-  .card .img{aspect-ratio:16/9;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px}
-  .card .img img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .img{aspect-ratio:16/9;background:#0a0e14;display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px;overflow:hidden}
+  .card .img img{width:100%;height:100%;object-fit:contain;display:block}
   .card .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
   .card h3{margin:0;font-size:16px}
   .price{color:var(--price);font-weight:700;font-size:18px;margin-top:auto}
@@ -50,7 +52,7 @@
 </head>
 <body>
 <header>
-  <div class="logo"><span class="gem">◆</span> FiveM Vehicle Dashboard</div>
+  <div class="logo"><img src="./icon.png" alt=""> FiveM Vehicle Dashboard</div>
   <input id="search" type="search" placeholder="車両名で検索…">
   <div class="count">総台数 <b id="total">0</b> 台</div>
   <button class="primary" id="add-btn">＋ 車両を登録</button>
