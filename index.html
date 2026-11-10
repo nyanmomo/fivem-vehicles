@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FiveM Vehicle Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b26; --panel2:#1c2333; --line:#2a3247;
+    --text:#e8ecf3; --sub:#9aa7bd; --accent:#22c3c3; --price:#f5d90a; --danger:#e5534b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:10}
+  .logo{font-size:20px;font-weight:700;display:flex;gap:8px;align-items:center}
+  .logo .gem{color:var(--accent)}
+  #search{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:10px 14px;font-size:14px}
+  .count{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:14px;color:var(--sub)}
+  .count b{color:var(--text);font-size:18px}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:9px 16px;font-size:14px}
+  button.primary{background:var(--accent);color:#06282b;border-color:var(--accent);font-weight:700}
+  button.danger{background:transparent;color:var(--danger);border-color:var(--danger)}
+  .toolbar{display:flex;padding:14px 20px 0}
+  .toolbar select{margin-left:auto;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 12px;font-size:14px}
+  #mode-banner{margin:12px 20px 0;padding:10px 14px;border:1px dashed var(--accent);border-radius:10px;color:var(--sub);font-size:13px;display:none}
+  main{padding:16px 20px 40px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .card .img{aspect-ratio:16/9;background:var(--panel2);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:13px}
+  .card .img img{width:100%;height:100%;object-fit:cover;display:block}
+  .card .body{padding:12px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .card h3{margin:0;font-size:16px}
+  .price{color:var(--price);font-weight:700;font-size:18px;margin-top:auto}
+  .price.none{color:var(--sub);font-weight:400;font-size:13px}
+  .card .actions{display:flex;gap:8px;padding:0 14px 12px}
+  .card .actions button{flex:1;padding:7px;font-size:13px}
+  .empty{color:var(--sub);text-align:center;padding:60px 0;font-size:15px;line-height:1.8}
+  dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:14px;width:min(480px,92vw);padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  .form{padding:20px;display:flex;flex-direction:column;gap:12px}
+  .form h2{margin:0 0 4px;font-size:18px}
+  .form label{font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:6px}
+  .form input{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px 12px;font-size:14px}
+  .form .row{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+  #preview{max-width:100%;border-radius:8px;display:none}
+  .hint{font-size:12px;color:var(--sub)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span class="gem">◆</span> FiveM Vehicle Dashboard</div>
+  <input id="search" type="search" placeholder="車両名で検索…">
+  <div class="count">総台数 <b id="total">0</b> 台</div>
+  <button class="primary" id="add-btn">＋ 車両を登録</button>
+</header>
+
+<div id="mode-banner"></div>
+
+<div class="toolbar">
+  <select id="sort">
+    <option value="new">新着順</option>
+    <option value="price-desc">価格が高い順</option>
+    <option value="price-asc">価格が安い順</option>
+    <option value="name">名前順</option>
+  </select>
+</div>
+
+<main>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    まだ車両が登録されていません。<br>右上の「＋ 車両を登録」から最初の1台を追加してください。
+  </div>
+</main>
+
+<dialog id="dlg">
+  <form class="form" id="form" method="dialog">
+    <h2 id="form-title">車両を登録</h2>
+    <input type="hidden" id="f-id">
+    <label>車両名 *<input id="f-name" required placeholder="例：Zentorno"></label>
+    <label>価格（$）<input id="f-price" type="number" min="0" step="1" placeholder="例：725000（空欄＝価格なし）"></label>
+    <label>画像（新規アップロード）
+      <input id="f-image" type="file" accept="image/*">
+    </label>
+    <img id="preview" alt="">
+    <div class="hint">画像は登録時にアップロードされ、全員に共有されます。</div>
+    <div class="row">
+      <button type="button" id="cancel-btn">キャンセル</button>
+      <button type="submit" class="primary">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const cfg = window.DASHBOARD_CONFIG || {};
+const shared = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
+const sb = shared ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY) : null;
+
+const LS_KEY = "fivem-vehicles-local";
+let vehicles = [];
+
+const $ = id => document.getElementById(id);
+const fmt = n => "$" + Number(n).toLocaleString("en-US");
+
+async function load(){
+  if(shared){
+    const { data, error } = await sb.from("vehicles").select("*").order("created_at",{ascending:false});
+    if(error){ alert("読み込みエラー: " + error.message); return; }
+    vehicles = data || [];
+  }else{
+    vehicles = JSON.parse(localStorage.getItem(LS_KEY) || "[]");
+    const b = $("mode-banner");
+    b.style.display = "block";
+    b.textContent = "ローカル確認モード：登録はこのブラウザ内にだけ保存されます。全員で共有するには config.js に Supabase の接続情報を設定してください（README参照）。";
+  }
+  render();
+}
+
+function saveLocal(){ localStorage.setItem(LS_KEY, JSON.stringify(vehicles)); }
+
+function render(){
+  $("total").textContent = vehicles.length;
+  const q = $("search").value.trim().toLowerCase();
+  let list = vehicles.filter(v => !q || (v.name||"").toLowerCase().includes(q));
+  const s = $("sort").value;
+  if(s==="price-desc") list.sort((a,b)=>(b.price??-1)-(a.price??-1));
+  if(s==="price-asc")  list.sort((a,b)=>(a.price??Infinity)-(b.price??Infinity));
+  if(s==="name")       list.sort((a,b)=>a.name.localeCompare(b.name));
+  if(s==="new")        list.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+
+  const grid = $("grid");
+  grid.innerHTML = "";
+  $("empty").style.display = list.length ? "none" : "block";
+  list.forEach(v=>{
+    const card = document.createElement("div");
+    card.className = "card";
+    const priceHtml = v.price == null ? '<div class="price none">価格なし</div>' : `<div class="price">${fmt(v.price)}</div>`;
+    card.innerHTML = `
+      <div class="img">${v.image_url ? `<img src="${v.image_url}" alt="">` : "NO IMAGE"}</div>
+      <div class="body">
+        <h3>${esc(v.name)}</h3>
+        ${priceHtml}
+      </div>
+      <div class="actions">
+        <button data-act="edit">編集</button>
+        <button class="danger" data-act="del">削除</button>
+      </div>`;
+    card.querySelector('[data-act="edit"]').onclick = ()=>openForm(v);
+    card.querySelector('[data-act="del"]').onclick = ()=>removeVehicle(v);
+    grid.appendChild(card);
+  });
+}
+function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+function openForm(v){
+  $("form-title").textContent = v ? "車両を編集" : "車両を登録";
+  $("f-id").value = v?.id || "";
+  $("f-name").value = v?.name || "";
+  $("f-price").value = v?.price ?? "";
+  $("f-image").value = "";
+  const p = $("preview");
+  if(v?.image_url){ p.src = v.image_url; p.style.display = "block"; } else { p.style.display = "none"; }
+  $("dlg").showModal();
+}
+
+async function uploadImage(file){
+  if(shared){
+    const path = `vehicles/${Date.now()}-${file.name.replace(/[^\w.\-]/g,"_")}`;
+    const { error } = await sb.storage.from("vehicle-images").upload(path, file);
+    if(error) throw error;
+    return sb.storage.from("vehicle-images").getPublicUrl(path).data.publicUrl;
+  }
+  return await new Promise(res=>{
+    const r = new FileReader();
+    r.onload = ()=>res(r.result);
+    r.readAsDataURL(file);
+  });
+}
+
+$("form").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const id = $("f-id").value || null;
+  const file = $("f-image").files[0];
+  let image_url = vehicles.find(v=>v.id===id)?.image_url || null;
+  try{
+    if(file) image_url = await uploadImage(file);
+    const row = {
+      name: $("f-name").value.trim(),
+      price: $("f-price").value === "" ? null : Number($("f-price").value),
+      image_url
+    };
+    if(!row.name){ alert("車両名は必須です"); return; }
+    if(shared){
+      const q = id ? sb.from("vehicles").update(row).eq("id", id) : sb.from("vehicles").insert(row);
+      const { error } = await q;
+      if(error) throw error;
+      await load();
+    }else{
+      if(id){
+        const i = vehicles.findIndex(v=>v.id===id);
+        if(i>=0) vehicles[i] = { ...vehicles[i], ...row };
+      }else{
+        vehicles.unshift({ id: crypto.randomUUID(), created_at: new Date().toISOString(), ...row });
+      }
+      saveLocal(); render();
+    }
+    $("dlg").close();
+  }catch(err){ alert("保存エラー: " + (err.message || err)); }
+});
+
+async function removeVehicle(v){
+  if(!confirm(`「${v.name}」を削除しますか？`)) return;
+  if(shared){
+    const { error } = await sb.from("vehicles").delete().eq("id", v.id);
+    if(error){ alert("削除エラー: " + error.message); return; }
+    await load();
+  }else{
+    vehicles = vehicles.filter(x=>x.id!==v.id);
+    saveLocal(); render();
+  }
+}
+
+$("add-btn").onclick = ()=>openForm(null);
+$("cancel-btn").onclick = ()=>$("dlg").close();
+$("search").addEventListener("input", render);
+$("sort").addEventListener("change", render);
+$("f-image").addEventListener("change", ()=>{
+  const f = $("f-image").files[0];
+  if(!f) return;
+  const p = $("preview");
+  p.src = URL.createObjectURL(f);
+  p.style.display = "block";
+});
+
+load();
+if(shared) sb.channel("vehicles-live").on("postgres_changes",{event:"*",schema:"public",table:"vehicles"},()=>load()).subscribe();
+</script>
+</body>
+</html>
